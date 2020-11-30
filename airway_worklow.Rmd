@@ -21,8 +21,20 @@ This project uses the 'airway' package that summarizes an RNA-seq experiment whe
 ```{r, message=FALSE}
 library(tidyverse)
 library(airway)
-library("DESeq2")
+library(DESeq2)
+library(ggplot2)
+library(apeglm)
+library(AnnotationHub)
 ```
+
+<br>
+
+#### RStudio Session Information
+```{r}
+sessionInfo()
+```
+
+
 
 #### Load the airway data
 ```{r}
@@ -112,4 +124,96 @@ This function does not return a DESeqDataSet, because it does not return counts,
 #### Access the VSD-tranformed counts
 ```{r}
 assay(vsd)[1:3,1:3]
+```
+
+<br>
+
+## Exploratory Analysis
+
+#### Visualize the VSD-tranformed data using Principal components Analysis
+```{r}
+#plotPCA(vsd, "dex") # An option for a simple plot
+
+# Prepare data for ggplot
+pcaData <- plotPCA(vsd, intgroup = c( "dex", "cell"), returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+# Plot using ggplot
+ggplot(pcaData, aes(x = PC1, y = PC2, color = dex, shape = cell)) +
+  geom_point(size =3) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed()
+```
+
+
+<br>
+
+## Differential Expression Analysis
+
+#### Apply DESeq Function on un-normalized counts
+```{r}
+dds <- DESeq(dds)
+res <- results(dds)
+```
+
+<br>
+
+# See the top genes (order by p-value)
+```{r}
+head(res[order(res$pvalue),])
+```
+<br>
+
+# See the top genes (order by p-value)
+```{r}
+plotMA(res, ylim=c(-5,5), colSig = "firebrick3")
+```
+For more informative visualization and more accurate ranking of genes by effect size, recommend to use DESeq2’s functionality for shrinking LFCs. For this, the apeglm shrinkage estimator is available in DESeq2’s lfcShrink function.
+
+# See the top genes (order by p-value)
+```{r}
+res2 <- lfcShrink(dds, coef="dex_trt_vs_untrt", type="apeglm")
+```
+<br>
+
+#### MA plots with/without Shrinkage:
+```{r}
+par(mfrow=c(1,2))
+plotMA(res, ylim=c(-3,3), main="No shrinkage", colSig = "firebrick3")
+plotMA(res2, ylim=c(-3,3), main="apeglm", colSig = "firebrick3")
+```
+<br>
+
+#### Specifying a minimum biologically meaningful effect size by choosing an LFC cutoff
+```{r}
+res.lfc <- results(dds, lfcThreshold=1)
+res.lfc2 <- lfcShrink(dds, coef="dex_trt_vs_untrt", type="apeglm",
+                      lfcThreshold=1)
+```
+
+<br>
+
+#### MA plots with/without Shrinkage, with LFC cutoffs added
+```{r}
+par(mfrow=c(1,2))
+plotMA(res.lfc, ylim=c(-5,5), main="No shrinkage, LFC test", colSig = "firebrick3")
+plotMA(res.lfc2, ylim=c(-5,5), main="apeglm, LFC test", alpha=0.01, colSig = "firebrick3")
+```
+
+<br>
+
+## Annotations
+
+#### Will use the AnnotationHub package to attach additional information to the results table
+```{r}
+ah <- AnnotationHub()
+hs <- ah[["AH61777"]]
+```
+
+<br>
+
+#### Specifying a minimum biologically meaningful effect size by choosing an LFC cutoff
+```{r}
+
 ```
