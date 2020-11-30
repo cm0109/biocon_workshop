@@ -26,6 +26,7 @@ library(ggplot2)
 library(apeglm)
 library(AnnotationHub)
 library(ReportingTools)
+library(EnrichmentBrowser)
 ```
 
 <br>
@@ -230,34 +231,74 @@ hs
 columns(hs)
 table(rownames(res) %in% keys(hs, "ENSEMBL"))
 ```
-We can use the mapIds function to add gene symbols, using ENSEMBL as the keytype, and requesting the column SYMBOL.
 
 <br>
 
-#### 
-```{r}
-
-```
-
-<br>
-
-#### 
+#### We can use the mapIds function to add gene symbols, using ENSEMBL as the keytype, and requesting the column SYMBOL.
 ```{r}
 res$symbol <- mapIds(hs, rownames(res), column="SYMBOL", keytype="ENSEMBL")
 head(res)
 ```
 <br>
+<br>
 
-### Building Reports
+## Functional Enrichment Analysis
+
+<br>
+
 ```{r}
-tmp <- tempdir() # you would instead use a meaningful path here
-rep <- HTMLReport(shortName="airway", title="Airway DGE",
-                  basePath=tmp, reportDirectory="report")
-publish(res, rep, dds, n=20, make.plots=TRUE, factor=dds$dex)
-finish(rep)
+kegg.gs <- getGenesets(org="hsa", db="kegg")
+go.gs <- getGenesets(org="hsa", db="go")
 ```
-```{r}
-browseURL(file.path(tmp,"report","airway.html"))
+<br>
 
+```{r}
+data.dir <- system.file("extdata", package="EnrichmentBrowser")
+gmt.file <- file.path(data.dir, "hsa_kegg_gs.gmt")
+hsa.gs <- getGenesets(gmt.file)
+hsa.gs[1:2]
+```
+
+<br>
+
+```{r}
+airSE <- airway[grep("^ENSG", names(airway)), ]
+dim(airSE)
+assay(airSE)[1:4,1:4]
+```
+
+<br>
+
+```{r}
+airSE$GROUP <- ifelse(colData(airway)$dex == "trt", 1, 0)
+table(airSE$GROUP)
+
+```
+
+<br>
+
+
+```{r}
+airSE$BLOCK <- airway$cell
+table(airSE$BLOCK)
+```
+Paired samples, or in general sample batches/blocks, can be defined via a BLOCK column in the colData slot. For the airway dataset, the sample blocks correspond to the four different cell lines.
+
+<br>
+
+
+```{r}
+airSE <- deAna(airSE, de.method="edgeR")
+```
+
+
+```{r}
+airSE <- idMap(airSE, org="hsa", from="ENSEMBL", to="ENTREZID")
+```
+
+#### GO/KEGG overrepresentation analysis
+```{r}
+ora.air <- sbea(method="ora", se=airSE, gs=hsa.gs, perm=0)
+gsRanking(ora.air)
 ```
 
