@@ -25,6 +25,7 @@ library(DESeq2)
 library(ggplot2)
 library(apeglm)
 library(AnnotationHub)
+library(ReportingTools)
 ```
 
 <br>
@@ -208,12 +209,55 @@ plotMA(res.lfc2, ylim=c(-5,5), main="apeglm, LFC test", alpha=0.01, colSig = "fi
 #### Will use the AnnotationHub package to attach additional information to the results table
 ```{r}
 ah <- AnnotationHub()
-hs <- ah[["AH61777"]]
+query(ah, c("OrgDb","Homo sapiens"))
 ```
 
 <br>
 
-#### Specifying a minimum biologically meaningful effect size by choosing an LFC cutoff
+#### Retrieve record for Homo Sapiens
+```{r}
+hs <- ah[["AH79577"]]
+hs
+```
+
+
+<br>
+
+### Mapping IDs
+
+#### Rownames of the results table are Ensembl IDs, and most of these are entries in OrgDb (although thousands are not).
+```{r}
+columns(hs)
+table(rownames(res) %in% keys(hs, "ENSEMBL"))
+```
+We can use the mapIds function to add gene symbols, using ENSEMBL as the keytype, and requesting the column SYMBOL.
+
+<br>
+
+#### 
 ```{r}
 
 ```
+
+<br>
+
+#### 
+```{r}
+res$symbol <- mapIds(hs, rownames(res), column="SYMBOL", keytype="ENSEMBL")
+head(res)
+```
+<br>
+
+### Building Reports
+```{r}
+tmp <- tempdir() # you would instead use a meaningful path here
+rep <- HTMLReport(shortName="airway", title="Airway DGE",
+                  basePath=tmp, reportDirectory="report")
+publish(res, rep, dds, n=20, make.plots=TRUE, factor=dds$dex)
+finish(rep)
+```
+```{r}
+browseURL(file.path(tmp,"report","airway.html"))
+
+```
+
